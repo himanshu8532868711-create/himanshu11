@@ -21,7 +21,7 @@ export const FloatingButtons = () => {
   };
 
   const openWhatsApp = () => {
-    const whatsappUrl = "https://wa.me/919876543210";
+    const whatsappUrl = "https://wa.me/918532868711";
     const isInIframe = window.self !== window.top;
     
     if (isInIframe) {
@@ -32,7 +32,7 @@ export const FloatingButtons = () => {
   };
 
   const openCall = () => {
-    const telUrl = "tel:+919876543210";
+    const telUrl = "tel:+918532868711";
     const isInIframe = window.self !== window.top;
     
     if (isInIframe) {
