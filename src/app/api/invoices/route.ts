@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { contactSubmissions } from '@/db/schema';
 import { eq, like, and, or, desc, SQL } from 'drizzle-orm';
+import {
+  createSEOHeaders,
+  createSEOResponse,
+  generateMetaTags,
+  BASE_URL,
+} from '@/lib/seo';
 
 const VALID_STATUSES = ['new', 'contacted', 'resolved'];
 
@@ -55,19 +61,30 @@ export async function GET(request: NextRequest) {
       conditions.push(eq(contactSubmissions.status, status));
     }
 
-    let query = db.select().from(contactSubmissions);
 
-    if (conditions.length > 0) {
-  query = query.where(and(...conditions));
-}
+    let baseQuery = db.select().from(contactSubmissions);
+    const filteredQuery =
+      conditions.length > 0
+        ? baseQuery.where(and(...conditions))
+        : baseQuery;
 
-
-    const results = await query
+    const results = await filteredQuery
       .orderBy(desc(contactSubmissions.createdAt))
       .limit(limit)
       .offset(offset);
 
-    return NextResponse.json(results, { status: 200 });
+    const metaTags = generateMetaTags({
+      title: 'Contact Submissions - Aadhya Digital Solution',
+      description: 'Contact form submissions and inquiries',
+      url: `${BASE_URL}/api/invoices`,
+      keywords: ['contact', 'submissions', 'inquiries'],
+    });
+
+    const response = createSEOResponse(results, metaTags, {
+      cacheControl: 'private, max-age=0, s-maxage=0',
+      noIndex: true,
+    });
+    return response;
   } catch (error) {
     console.error('GET error:', error);
     return NextResponse.json(

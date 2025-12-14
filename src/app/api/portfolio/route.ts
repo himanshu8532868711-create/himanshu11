@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { portfolioItems } from '@/db/schema';
 import { eq, like, and, or, desc } from 'drizzle-orm';
+import {
+  createSEOHeaders,
+  createSEOResponse,
+  generateMetaTags,
+  generateAlternateVersions,
+  BASE_URL,
+} from '@/lib/seo';
 
 const VALID_CATEGORIES = ['Web', 'App', 'Design', 'Marketing'];
 
@@ -56,17 +63,29 @@ export async function GET(request: NextRequest) {
       conditions.push(eq(portfolioItems.category, category));
     }
 
-    const filteredQuery =
-      conditions.length > 0
-        ? baseQuery.where(and(...conditions))
-        : baseQuery;
+    const filteredQuery = conditions.length > 0
+      ? baseQuery.where(and(...conditions))
+      : baseQuery;
 
     const results = await filteredQuery
       .orderBy(desc(portfolioItems.createdAt))
       .limit(limit)
       .offset(offset);
 
-    return NextResponse.json(results, { status: 200 });
+    const metaTags = generateMetaTags({
+      title: 'Portfolio - Aadhya Digital Solution',
+      description: 'Portfolio showcasing our completed projects and case studies across web development, design, and marketing',
+      image: `${BASE_URL}/portfolio-cover.jpg`,
+      url: `${BASE_URL}/api/portfolio`,
+      keywords: ['portfolio', 'projects', 'case studies', 'web development', 'design', 'work'],
+      alternateVersions: generateAlternateVersions('/api/portfolio'),
+    });
+
+    const response = createSEOResponse(results, metaTags, {
+      cacheControl: 'public, max-age=3600, s-maxage=86400',
+    });
+
+    return response;
   } catch (error) {
     console.error('GET error:', error);
     return NextResponse.json(

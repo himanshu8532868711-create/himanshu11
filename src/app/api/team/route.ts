@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { teamMembers } from '@/db/schema';
 import { eq, like, or, asc } from 'drizzle-orm';
+import {
+  createSEOHeaders,
+  createSEOResponse,
+  generateMetaTags,
+  generateAlternateVersions,
+  BASE_URL,
+} from '@/lib/seo';
 
 export async function GET(request: NextRequest) {
   try {
@@ -56,7 +63,19 @@ export async function GET(request: NextRequest) {
       .limit(limit)
       .offset(offset);
 
-    return NextResponse.json(results, { status: 200 });
+    const metaTags = generateMetaTags({
+      title: 'Team - Aadhya Digital Solution',
+      description: 'Meet our talented team of digital experts and professionals dedicated to your success',
+      image: `${BASE_URL}/team-cover.jpg`,
+      url: `${BASE_URL}/api/team`,
+      keywords: ['team', 'professionals', 'experts', 'staff', 'about', 'people'],
+      alternateVersions: generateAlternateVersions('/api/team'),
+    });
+
+    const response = createSEOResponse(results, metaTags, {
+      cacheControl: 'public, max-age=3600, s-maxage=86400',
+    });
+    return response;
   } catch (error: any) {
     console.error('GET error:', error);
     return NextResponse.json(

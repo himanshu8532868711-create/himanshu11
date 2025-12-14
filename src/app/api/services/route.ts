@@ -4,6 +4,14 @@ import { services, serviceItems } from '@/db/schema';
 import { eq, like, or, and, asc } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
+import {
+  createSEOHeaders,
+  generateServiceSchema,
+  createSEOResponse,
+  generateMetaTags,
+  generateAlternateVersions,
+  BASE_URL,
+} from '@/lib/seo';
 
 async function getCurrentUser(request: NextRequest) {
   const session = await auth.api.getSession({
@@ -24,27 +32,34 @@ export async function GET(request: NextRequest) {
 
     // Single record fetch
     if (id) {
-      const service = await db.select().from(services).where(eq(services.id, parseInt(id))).limit(1);
+      try {
+        const service = await db.select().from(services).where(eq(services.id, parseInt(id))).limit(1);
 
-      if (service.length === 0) {
+        if (service.length === 0) {
+          return NextResponse.json({ 
+            error: 'Service not found',
+            code: "SERVICE_NOT_FOUND" 
+          }, { status: 404 });
+        }
+
+        if (withItems) {
+          const items = await db.select().from(serviceItems)
+            .where(eq(serviceItems.serviceId, service[0].id))
+            .orderBy(asc(serviceItems.displayOrder));
+
+          return NextResponse.json({
+            ...service[0],
+            items
+          });
+        }
+
+        return NextResponse.json(service[0]);
+      } catch (dbError) {
+        console.error('Database error fetching single service:', dbError);
         return NextResponse.json({ 
-          error: 'Service not found',
-          code: "SERVICE_NOT_FOUND" 
-        }, { status: 404 });
+          error: 'Failed to fetch service: ' + (dbError as Error).message 
+        }, { status: 500 });
       }
-
-      if (withItems) {
-        const items = await db.select().from(serviceItems)
-          .where(eq(serviceItems.serviceId, service[0].id))
-          .orderBy(asc(serviceItems.displayOrder));
-
-        return NextResponse.json({
-          ...service[0],
-          items
-        });
-      }
-
-      return NextResponse.json(service[0]);
     }
 
     // List query - build filter object
@@ -77,23 +92,63 @@ export async function GET(request: NextRequest) {
 
     // If withItems is true, fetch items for each service
     if (withItems) {
-      const servicesWithItems = await Promise.all(
-        results.map(async (service) => {
-          const items = await db.select().from(serviceItems)
-            .where(eq(serviceItems.serviceId, service.id))
-            .orderBy(asc(serviceItems.displayOrder));
+      try {
+        const servicesWithItems = await Promise.all(
+          results.map(async (service) => {
+            try {
+              const items = await db.select().from(serviceItems)
+                .where(eq(serviceItems.serviceId, service.id))
+                .orderBy(asc(serviceItems.displayOrder));
 
-          return {
-            ...service,
-            items
-          };
-        })
-      );
+              return {
+                ...service,
+                items
+              };
+            } catch (itemError) {
+              console.error(`Error fetching items for service ${service.id}:`, itemError);
+              return {
+                ...service,
+                items: [],
+                itemsError: (itemError as Error).message
+              };
+            }
+          })
+        );
 
-      return NextResponse.json(servicesWithItems);
+        const metaTags = generateMetaTags({
+          title: 'Services - Aadhya Digital Solution',
+          description: 'Professional digital marketing and web development services including SEO, PPC, design, and more',
+          image: `${BASE_URL}/services-cover.jpg`,
+          url: `${BASE_URL}/api/services`,
+          keywords: ['services', 'digital marketing', 'web development', 'design', 'branding', 'seo'],
+          alternateVersions: generateAlternateVersions('/api/services'),
+        });
+
+        const response = createSEOResponse(servicesWithItems, metaTags, {
+          cacheControl: 'public, max-age=3600, s-maxage=86400',
+        });
+        return response;
+      } catch (promiseError) {
+        console.error('Error fetching services with items:', promiseError);
+        return NextResponse.json({ 
+          error: 'Failed to fetch services with items: ' + (promiseError as Error).message 
+        }, { status: 500 });
+      }
     }
 
-    return NextResponse.json(results);
+    const metaTags = generateMetaTags({
+      title: 'Services - Aadhya Digital Solution',
+      description: 'Professional digital marketing and web development services including SEO, PPC, design, and more',
+      image: `${BASE_URL}/services-cover.jpg`,
+      url: `${BASE_URL}/api/services`,
+      keywords: ['services', 'digital marketing', 'web development', 'design', 'branding', 'seo'],
+      alternateVersions: generateAlternateVersions('/api/services'),
+    });
+
+    const response = createSEOResponse(results, metaTags, {
+      cacheControl: 'public, max-age=3600, s-maxage=86400',
+    });
+    return response;
 
   } catch (error) {
     console.error('GET error:', error);

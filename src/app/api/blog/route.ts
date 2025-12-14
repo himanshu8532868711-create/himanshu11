@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { blogPosts } from '@/db/schema';
 import { eq, like, and, or, desc } from 'drizzle-orm';
+import {
+  createSEOHeaders,
+  generateBlogPostSchema,
+  createSEOResponse,
+  generateMetaTags,
+  generateAlternateVersions,
+  BASE_URL,
+} from '@/lib/seo';
 
 export async function GET(request: NextRequest) {
   try {
@@ -30,7 +38,23 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      return NextResponse.json(post[0], { status: 200 });
+      const metaTags = generateMetaTags({
+        title: `${post[0].title} - Aadhya Digital Solution`,
+        description: post[0].excerpt,
+        image: post[0].thumbnailUrl,
+        url: `${BASE_URL}/blog/${post[0].slug}`,
+        type: 'article',
+        author: post[0].authorName,
+        publishedDate: post[0].publishedAt ?? undefined,
+        modifiedDate: post[0].updatedAt,
+        keywords: [post[0].category, 'blog', 'article', 'digital marketing'],
+        alternateVersions: generateAlternateVersions(`/api/blog?id=${id}`),
+      });
+
+      return createSEOResponse(post[0], metaTags, {
+        cacheControl: 'public, max-age=3600, s-maxage=86400',
+        includeSchema: generateBlogPostSchema(post[0]),
+      });
     }
 
     // List with pagination, search, and filters
@@ -40,7 +64,6 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get('category');
     const status = searchParams.get('status');
 
-    let query = db.select().from(blogPosts);
     const conditions = [];
 
     // Search across title, excerpt, authorName
@@ -64,16 +87,34 @@ export async function GET(request: NextRequest) {
       conditions.push(eq(blogPosts.status, status));
     }
 
-    if (conditions.length > 0) {
-      query = query.where(and(...conditions));
-    }
+    const results = await (conditions.length > 0
+      ? db
+          .select()
+          .from(blogPosts)
+          .where(and(...conditions))
+          .orderBy(desc(blogPosts.createdAt))
+          .limit(limit)
+          .offset(offset)
+      : db
+          .select()
+          .from(blogPosts)
+          .orderBy(desc(blogPosts.createdAt))
+          .limit(limit)
+          .offset(offset));
 
-    const results = await query
-      .orderBy(desc(blogPosts.createdAt))
-      .limit(limit)
-      .offset(offset);
+    const metaTags = generateMetaTags({
+      title: 'Blog - Aadhya Digital Solution',
+      description: 'Latest blog posts and articles on digital marketing, web design, and technology trends',
+      image: `${BASE_URL}/blog-cover.jpg`,
+      url: `${BASE_URL}/api/blog`,
+      keywords: ['blog', 'articles', 'digital marketing', 'web design', 'technology', 'insights'],
+      alternateVersions: generateAlternateVersions('/api/blog'),
+    });
 
-    return NextResponse.json(results, { status: 200 });
+    const response = createSEOResponse(results, metaTags, {
+      cacheControl: 'public, max-age=300, s-maxage=3600',
+    });
+    return response;
   } catch (error) {
     console.error('GET error:', error);
     return NextResponse.json(

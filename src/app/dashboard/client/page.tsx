@@ -52,16 +52,29 @@ export default function ClientDashboard() {
 
   const fetchData = async () => {
     try {
+      setLoading(true);
       const token = localStorage.getItem("bearer_token");
       
+      if (!token) {
+        toast.error("No authentication token found. Please log in again.");
+        router.push("/login");
+        return;
+      }
+
       // Fetch projects
       const projectsRes = await fetch("/api/projects?limit=10", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
+
+      if (!projectsRes.ok) {
+        console.error("Projects fetch error:", projectsRes.status);
+        throw new Error(`Failed to fetch projects: ${projectsRes.statusText}`);
+      }
+
       const projectsData = await projectsRes.json();
-      setProjects(projectsData);
+      setProjects(Array.isArray(projectsData) ? projectsData : []);
 
       // Fetch invoices
       const invoicesRes = await fetch("/api/invoices?limit=10", {
@@ -69,13 +82,19 @@ export default function ClientDashboard() {
           Authorization: `Bearer ${token}`,
         },
       });
+
+      if (!invoicesRes.ok) {
+        console.error("Invoices fetch error:", invoicesRes.status);
+        throw new Error(`Failed to fetch invoices: ${invoicesRes.statusText}`);
+      }
+
       const invoicesData = await invoicesRes.json();
-      setInvoices(invoicesData);
+      setInvoices(Array.isArray(invoicesData) ? invoicesData : []);
 
       setLoading(false);
     } catch (error) {
       console.error("Error fetching data:", error);
-      toast.error("Failed to load dashboard data");
+      toast.error("Failed to load dashboard data: " + (error as Error).message);
       setLoading(false);
     }
   };

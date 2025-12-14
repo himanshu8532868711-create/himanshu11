@@ -1,0 +1,33 @@
+# Robots.txt for Aadhya Digital Solution
+# Allows search engine crawlers to index the website
+
+# Allow all crawlers for all pages
+User-agent: *
+Allow: /
+Allow: /api/blog
+Allow: /api/portfolio
+Allow: /api/services
+Allow: /api/testimonials
+Allow: /api/team
+Allow: /sitemap.xml
+
+# Disallow private/admin areas
+Disallow: /dashboard/
+Disallow: /admin/
+Disallow: /api/auth/
+Disallow: /*.json$
+Disallow: /login
+Disallow: /register
+
+# Google specific directives
+User-agent: Googlebot
+Allow: /
+Crawl-delay: 0
+
+# Bing specific directives
+User-agent: Bingbot
+Allow: /
+Crawl-delay: 1
+
+# Specify sitemap location
+Sitemap: https://Aadhyadigitalsolution.com/sitemap.xml

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff, ArrowRight } from "lucide-react";
@@ -14,7 +14,7 @@ import Footer from "@/components/Footer";
 import { authClient } from "@/lib/auth-client";
 import { toast } from "sonner";
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const registered = searchParams.get("registered");
@@ -54,9 +54,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <Navigation />
-      
+    <>
       <div className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8 py-32">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
@@ -153,7 +151,17 @@ export default function LoginPage() {
           </Card>
         </div>
       </div>
+    </>
+  );
+}
 
+export default function LoginPage() {
+  return (
+    <div className="min-h-screen flex flex-col">
+      <Navigation />
+      <Suspense fallback={<div className="flex-1" />}>
+        <LoginContent />
+      </Suspense>
       <Footer />
     </div>
   );

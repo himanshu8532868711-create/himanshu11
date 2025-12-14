@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { contactSubmissions } from '@/db/schema';
 import { eq, like, and, or, desc, SQL } from 'drizzle-orm';
+import {
+  createSEOHeaders,
+  createSEOResponse,
+  generateMetaTags,
+  BASE_URL,
+} from '@/lib/seo';
 
 const VALID_STATUSES = ['new', 'contacted', 'resolved'];
 
@@ -39,7 +45,7 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search');
     const status = searchParams.get('status');
 
-    const conditions: SQL[] = [];
+    const conditions: any[] = [];
 
     if (search) {
       conditions.push(
@@ -47,7 +53,7 @@ export async function GET(request: NextRequest) {
           like(contactSubmissions.name, `%${search}%`),
           like(contactSubmissions.email, `%${search}%`),
           like(contactSubmissions.message, `%${search}%`)
-        )!
+        )
       );
     }
 
@@ -55,18 +61,26 @@ export async function GET(request: NextRequest) {
       conditions.push(eq(contactSubmissions.status, status));
     }
 
-    let query = db.select().from(contactSubmissions);
-
-    if (conditions.length > 0) {
-      query = query.where(and(...conditions)!);
-    }
+    let query = conditions.length > 0
+      ? db.select().from(contactSubmissions).where(and(...conditions))
+      : db.select().from(contactSubmissions);
 
     const results = await query
       .orderBy(desc(contactSubmissions.createdAt))
       .limit(limit)
       .offset(offset);
 
-    return NextResponse.json(results, { status: 200 });
+    const metaTags = generateMetaTags({
+      title: 'Contact Submissions - Admin',
+      description: 'Internal contact form submissions management',
+      url: `${BASE_URL}/api/contact`,
+    });
+
+    const response = createSEOResponse(results, metaTags, {
+      cacheControl: 'private, no-cache, no-store, must-revalidate',
+    });
+
+    return response;
   } catch (error) {
     console.error('GET error:', error);
     return NextResponse.json(
@@ -129,7 +143,16 @@ export async function POST(request: NextRequest) {
       })
       .returning();
 
-    return NextResponse.json(newSubmission[0], { status: 201 });
+    const metaTags = generateMetaTags({
+      title: 'Contact Submission Created - Admin',
+      description: 'New contact form submission recorded',
+      url: `${BASE_URL}/api/contact`,
+    });
+    const response = createSEOResponse(newSubmission[0], metaTags, {
+      cacheControl: 'private, no-cache, no-store, must-revalidate',
+    });
+
+    return response;
   } catch (error) {
     console.error('POST error:', error);
     return NextResponse.json(
@@ -224,7 +247,16 @@ export async function PUT(request: NextRequest) {
       .where(eq(contactSubmissions.id, parseInt(id)))
       .returning();
 
-    return NextResponse.json(updated[0], { status: 200 });
+    const metaTags = generateMetaTags({
+      title: 'Contact Submission Updated - Admin',
+      description: 'Contact form submission updated',
+      url: `${BASE_URL}/api/contact`,
+    });
+    const response = createSEOResponse(updated[0], metaTags, {
+      cacheControl: 'private, no-cache, no-store, must-revalidate',
+    });
+
+    return response;
   } catch (error) {
     console.error('PUT error:', error);
     return NextResponse.json(
@@ -264,13 +296,23 @@ export async function DELETE(request: NextRequest) {
       .where(eq(contactSubmissions.id, parseInt(id)))
       .returning();
 
-    return NextResponse.json(
+    const metaTags = generateMetaTags({
+      title: 'Contact Submission Deleted - Admin',
+      description: 'Contact form submission deleted',
+      url: `${BASE_URL}/api/contact`,
+    });
+    const response = createSEOResponse(
       {
         message: 'Contact submission deleted successfully',
         deleted: deleted[0]
       },
-      { status: 200 }
+      metaTags,
+      {
+        cacheControl: 'private, no-cache, no-store, must-revalidate',
+      }
     );
+
+    return response;
   } catch (error) {
     console.error('DELETE error:', error);
     return NextResponse.json(

@@ -1,6 +1,6 @@
 "use client"
 import { createAuthClient } from "better-auth/react"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 
 export const authClient = createAuthClient({
    baseURL: typeof window !== 'undefined' ? window.location.origin : process.env.NEXT_PUBLIC_SITE_URL,
@@ -27,14 +27,11 @@ export function useSession(): SessionData {
    const [isPending, setIsPending] = useState(true);
    const [error, setError] = useState<any>(null);
 
-   const refetch = () => {
-      setIsPending(true);
-      setError(null);
-      fetchSession();
-   };
-
-   const fetchSession = async () => {
+   const fetchSession = useCallback(async () => {
       try {
+         setIsPending(true);
+         setError(null);
+         
          const res = await authClient.getSession({
             fetchOptions: {
                auth: {
@@ -43,19 +40,33 @@ export function useSession(): SessionData {
                },
             },
          });
-         setSession(res.data);
-         setError(null);
+         
+         if (res.data) {
+            setSession(res.data);
+         } else {
+            setSession(null);
+         }
       } catch (err) {
+         console.error("Error fetching session:", err);
          setSession(null);
          setError(err);
       } finally {
          setIsPending(false);
       }
-   };
+   }, []);
+
+   const refetch = useCallback(() => {
+      fetchSession();
+   }, [fetchSession]);
 
    useEffect(() => {
       fetchSession();
-   }, []);
+      
+      // Set up interval to refresh session periodically (every 5 minutes)
+      const interval = setInterval(fetchSession, 5 * 60 * 1000);
+      
+      return () => clearInterval(interval);
+   }, [fetchSession]);
 
    return { data: session, isPending, error, refetch };
 }

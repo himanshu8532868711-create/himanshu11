@@ -69,7 +69,26 @@ export default function RegisterPage() {
       }
 
       toast.success("Account created successfully!");
-      router.push("/login?registered=true");
+      
+      // Automatically sign in after registration
+      try {
+        const { error: signInError } = await authClient.signIn.email({
+          email: formData.email,
+          password: formData.password,
+          callbackURL: "/dashboard/client"
+        });
+
+        if (signInError) {
+          // If auto sign-in fails, redirect to login
+          router.push("/login?registered=true");
+        } else {
+          // Auto sign-in successful, redirect to dashboard
+          router.push("/dashboard/client");
+        }
+      } catch {
+        // If auto sign-in fails, redirect to login
+        router.push("/login?registered=true");
+      }
     } catch (error) {
       toast.error("An error occurred. Please try again.");
       setIsLoading(false);
